@@ -1,7 +1,7 @@
 ---
 title: "AD2 2016.2 - Lab1 - parte 2"
 author: "Marianne Linhares"
-date: "11 de novembro de 2016"
+date: "14 de novembro de 2016"
 output: html_document
 ---
 
@@ -40,8 +40,10 @@ library(dplyr)
 Os dados estão em um arquivo em que cada linha representa uma relação entre uma aluno e uma disciplina.
 
 ``` {r eval=TRUE, echo=TRUE}
-dados_alunos_ufcg = read.csv("data/alunosUFCGAnon.csv")
-head(dados_alunos_ufcg)
+dados_alunos_ufcg = read.csv("/home/mari/Dropbox/ESTUDO/Graduação/P6/ad2/lab1/alunosUFCGAnon.csv")
+
+names(dados_alunos_ufcg)
+summary(dados_alunos_ufcg)
 
 ```
 
@@ -57,23 +59,17 @@ Observando esses dados podemos identificar algumas situações em que devemos te
   Na análise aqui apresentada consideramos cada disciplina através do seu código, 
   de forma que disciplinas diurnas, noturnas ou de campos diferentes mesmo representando
   "a mesma disciplina" serão consideradas disciplinas distintas. Assim, evitamos
-  "agrupamentos" indesejados ou "separações" indesejadas. Infelizmente isso
-  implica em gráficos não tão legíveis, pois o código foi utilizado como *label* (é um 
-  trade-off).
+  "agrupamentos" indesejados ou "separações" indesejadas.
 
 ## Parte 1 <a name="parte1"></a>
 
 *__"Em quais cursos estão as melhores e piores notas? Por que você acha que isso acontece em cada caso?"__*
 
-Primeiramente, é válido dizer que nesta análise cada curso foi identificado por seu *Cod_Curso*, o motivo para isso já foi explicado na sessão anterior. Nessa abordagem temos
-95 cursos possíveis.
+Primeiramente, é válido dizer que nesta análise cada curso foi identificado por seu *Cod_Curso*, o motivo para isso já foi explicado na sessão anterior. Nessa abordagem temos 95 cursos possíveis.
 
 Seguindo com a análise, há varios modos de buscarmos essa resposta nos dados, algumas delas:
 
-1. Uma delas seria utilizar a mediana, porém não acho que essa solução seja a mais adequada, pois se, por exemplo, num curso X as notas são [1, 2, 2, 2, 9, 10, 10] a mediana
-é 2, porém esse valor não representa bem a realidade. No entanto, Utilizando um *Box Plot*
-teremos mais informações a respeito da dispersão dessas notas e assim um resultado 
-mais próximo da realidade que pode ser considerado portanto mais representativo.
+1. Uma delas seria utilizar a mediana, porém não acho que essa solução seja a mais adequada, pois se, por exemplo, num curso X as notas são [1, 2, 2, 2, 9, 10, 10] a mediana é 2, porém esse valor não representa bem a realidade. No entanto, Utilizando um *Box Plot* teremos mais informações a respeito da dispersão dessas notas e assim um resultado mais próximo da realidade que pode ser considerado portanto mais representativo.
 
 2. Utilizando o mesmo exemplo do quesito anterior e calculando a média aparada (10%) e desvio padrão, teríamos que a média é ~5.143 e desvio padrão ~4.26. Assim sabemos que o curso X tem média aproximadamente 5, porém os dados são bastante variados. Para os dados desse exercício, é possível que encontremos desvios padrões muito grandes devido aos desistentes e reprovados que serão *outliers* e puxarão a média para baixo e aumentarão o desvio padrão, porém ainda sim acredito que seja possível chegar a resultados interessantes com essa abordagem ao utilizar a média aparada.
 
@@ -83,14 +79,10 @@ Assim, de acordo com o que foi dito acima, escolhi utilizar as análises 1. e 2.
 
 ### Utilizando o Box Plot
 
-Vamos ordenar os dados pela mediana, "plotar" o *Box Plot* e considerar os 10 primeiros valores (menor nota) e 10 últimos (maior nota).
+Vamos ordenar os dados pela mediana, "plotar" o *Box Plot* de todos dados e considerar os 10 primeiros valores (menor nota) e 10 últimos (maior nota) para nossa análise.
 
+#### Plotando Box Plot
 ``` {r eval=TRUE, echo=TRUE}
-
-# Agrupar e Ordenar por Mediana
-dados_mediana_curso <- aggregate(x = dados_alunos_ufcg$Media_Disciplina, by=list(Cod_Curso = factor(dados_alunos_ufcg$Cod_Curso), Nome_Curso = dados_alunos_ufcg$Nome_Curso), FUN=median, na.rm=TRUE)
- 
-dados_mediana_curso <- dados_mediana_curso[order(dados_mediana_curso$x),]
 
 # Ordenar por Mediana para um gráfico mais visual 
 dados_mediana_curso_graf <- dados_alunos_ufcg %>%
@@ -100,21 +92,54 @@ dados_mediana_curso_graf <- dados_alunos_ufcg %>%
 dados_mediana_curso_graf <- dados_mediana_curso_graf[order(dados_mediana_curso_graf$Mediana_Curso),]
 
 # Gráfico Ordenado por Mediana
-ggplot(dados_mediana_curso_graf, aes(x = factor(reorder(Cod_Curso, Mediana_Curso, na.rm = T)), y = Media_Disciplina), na.rm = T) + geom_boxplot(alpha=1/4, na.rm = T) +
+ggplot(dados_mediana_curso_graf, aes(x = factor(reorder(Cod_Curso, Mediana_Curso, na.rm = T)), y = Media_Disciplina), na.rm = T) + geom_boxplot(alpha=1/8, na.rm = T) +
   theme(axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) + xlab("Cursos") + ylab("Média do Curso")
+        axis.ticks.x=element_blank()) + xlab("Cursos") + ylab("Média do Curso") 
+```
+
+#### Selecionando os 10 Cursos com Maiores e Menores Medianas
+
+``` {r eval=TRUE, echo=TRUE}
+
+# Agrupar e Ordenar por Mediana
+dados_mediana_curso <- aggregate(x = dados_alunos_ufcg$Media_Disciplina, by=list(Cod_Curso = factor(dados_alunos_ufcg$Cod_Curso), Nome_Curso = dados_alunos_ufcg$Nome_Curso), FUN=median, na.rm=TRUE)
+
+# Renomeando de x para Mediana_Curso
+colnames(dados_mediana_curso)[3] <- "Mediana_Curso"
+
+# Ordenação
+dados_mediana_curso <- dados_mediana_curso[order(dados_mediana_curso$Mediana_Curso),]
+
+# 10 Maiores e Menores Medianas
+menores_10_medianas_curso = dados_mediana_curso[1:10,] 
+maiores_10_medianas_curso = dados_mediana_curso[95:85,] 
+
+# Gerando gráficos
+dados_maiores_10_medianas_curso = na.omit(subset(dados_alunos_ufcg, Cod_Curso %in% maiores_10_medianas_curso[,1])) 
+dados_menores_10_medianas_curso = na.omit(subset(dados_alunos_ufcg, Cod_Curso %in% menores_10_medianas_curso[,1]))
+
+plot_10_maiores_medianas <- ggplot(dados_maiores_10_medianas_curso, aes(x = reorder(Cod_Curso,-Media_Disciplina, FUN="median"), y = Media_Disciplina, fill = Nome_Curso)) + geom_boxplot() + xlab("Código do Curso") + ylab("Mediana do Curso") +
+  labs(fill = "Nome Curso") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("10 Cursos com Maiores Medianas")
+ 
+plot_10_maiores_medianas
+
+plot_10_menores_medianas <- ggplot(dados_menores_10_medianas_curso, aes(x = reorder(Cod_Curso,-Media_Disciplina, FUN="median"), y = Media_Disciplina, fill = Nome_Curso)) + geom_boxplot() + xlab("Código do Curso") + ylab("Mediana do Curso") +
+  labs(fill = "Nome Curso") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("10 Cursos com Menores Medianas")
+
+plot_10_menores_medianas
 ```
 
 ### Utilizando Média Aparada e Desvio Padrão
+
+ Vamos fazer o mesmo procedimento do *Box Plot*, visualizar os dados como todos e depois selecionar os cursos com 10 maiores e menores médias.
+
+#### Gerando gráfico da Média Aparada e Desvio Padrão  
 ``` {r}
 
-# Agrupar e Ordenar por Média aparada
-dados_media_curso <- aggregate(x = dados_alunos_ufcg$Media_Disciplina, by=list(Cod_Curso = factor(dados_alunos_ufcg$Cod_Curso), Nome_Curso = dados_alunos_ufcg$Nome_Curso), FUN=function(x) mean(x, trim = 0.10, na.rm = T))
-
-dados_media_curso <- dados_media_curso[order(dados_media_curso$x),]
-
-## Agrupar e Ordenar por Média aparada e Desvio padrão para gráfico mais visual
-dados_media_desvio_curso <- group_by(dados_alunos_ufcg, Cod_Curso)
+# Agrupar e Ordenar por Média aparada e Desvio padrão para gráfico mais visual
+dados_media_desvio_curso <- group_by(dados_alunos_ufcg, Cod_Curso, Campus, Nome_Curso)
 
 dados_media_desvio_curso <- summarise(dados_media_desvio_curso, 
                                       Media_Curso = mean(Media_Disciplina,trim=0.10, na.rm= T),
@@ -122,7 +147,11 @@ dados_media_desvio_curso <- summarise(dados_media_desvio_curso,
  
 dados_media_desvio_curso <- dados_media_desvio_curso[order(dados_media_desvio_curso$Media_Curso),]
 
-# Todos Ordenados
+# Gerando nova coluna que diferencia disciplinas com mesmo nome porém
+# de campus diferentes
+dados_media_desvio_curso$Nome_Curso_Campus <- paste(dados_media_desvio_curso$Nome_Curso, dados_media_desvio_curso$Campus, sep=": ")
+
+# Gráfico - Todos Ordenados
 ggplot() +
   
   geom_point(data = dados_media_desvio_curso, aes(x = factor(reorder(Cod_Curso, Media_Curso)), y = Media_Curso),
@@ -133,61 +162,57 @@ ggplot() +
   colour = 'blue', width = 0.4) +
   
   theme(axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) + xlab("Cursos") + ylab("Média do Curso")
+        axis.ticks.x=element_blank()) + xlab("Cursos") + ylab("Média do Curso") +
+  ggtitle("Cursos Ordenados por Média Aparada")
+```
 
-# 10 Menores Ordenados
-ggplot() +
-  
-  geom_point(data = dados_media_desvio_curso[1:10,], aes(x = factor(reorder(Cod_Curso, Media_Curso)), y = Media_Curso),
-  size = 2) +
-  
-  geom_errorbar(data = dados_media_desvio_curso[1:10, ], aes(x = factor(Cod_Curso), ymin =
-  Media_Curso - Desvio_Curso, ymax = Media_Curso + Desvio_Curso),
-  colour = 'blue', width = 0.4) + xlab("Código do Curso") + ylab("Média do Curso")
+#### Selecionando os 10 Cursos com Maiores e Menores Médias
 
-# 10 Maiores Ordenados
+``` {r}
+
+# Agrupar e Ordenar por Média aparada
+dados_media_curso <- aggregate(x = dados_alunos_ufcg$Media_Disciplina, by=list(Cod_Curso = factor(dados_alunos_ufcg$Cod_Curso), Nome_Curso = dados_alunos_ufcg$Nome_Curso), FUN=function(x) mean(x, trim = 0.10, na.rm = T))
+
+dados_media_curso <- dados_media_curso[order(dados_media_curso$x),]
+
+# 10 maiores e menores Médias
+dados_10_menores_medias <- dados_media_desvio_curso[1:10,]
+dados_10_maiores_medias <- dados_media_desvio_curso[85:95,]
+
+# Gráfico - 10 Maiores Médias Ordenadas
 ggplot() +
+  geom_point(data = dados_media_desvio_curso[85:95,], aes(x = factor(reorder(Nome_Curso_Campus, Media_Curso)), y = Media_Curso), size = 2) +
   
-  geom_point(data = dados_media_desvio_curso[85:95,], aes(x = factor(reorder(Cod_Curso, Media_Curso)), y = Media_Curso),
-  size = 2) +
+  geom_errorbar(data = dados_media_desvio_curso[85:95,], aes(x = factor(reorder(Nome_Curso_Campus, Media_Curso)), ymin  = Media_Curso - Desvio_Curso, ymax = Media_Curso + Desvio_Curso), width = 0.4) + xlab("Nome do Curso : Campus") + ylab("Média do Curso") + coord_flip() + ggtitle("10 Maiores Médias Ordenadas")
+
+# Gráfico - 10 Menores Médias Ordenadas
+ggplot() +
+  geom_point(data = dados_media_desvio_curso[1:10,], aes(x = factor(reorder(Nome_Curso_Campus, -Media_Curso)), y = Media_Curso), size = 2) +
   
-  geom_errorbar(data = dados_media_desvio_curso[85:95, ], aes(x = factor(Cod_Curso), ymin =
-  Media_Curso - Desvio_Curso, ymax = Media_Curso + Desvio_Curso),
-  colour = 'blue', width = 0.4) + xlab("Código do Curso") + ylab("Média do Curso")
+  geom_errorbar(data = dados_media_desvio_curso[1:10,], aes(x = factor(reorder(Nome_Curso_Campus, -Media_Curso)), ymin  = Media_Curso - Desvio_Curso, ymax = Media_Curso + Desvio_Curso), width = 0.4) + xlab("Nome do Curso : Campus") + ylab("Média do Curso") + coord_flip() + ggtitle("10 Menores Médias Ordenadas")
 
 ```
 
 ## Conclusão
 
+### Cursos com 10 Menores Notas
+
+``` {r}
+menores_10_medianas_curso
+dados_10_menores_medias
+```
 Em relação aos cursos de menores notas: ambas análises obtiveram resultados similares, concordando por exemplo que Física (Código: 11105110) apresenta as menores notas, porém apresetando desvio padrão bem alto, e o *Blox Plot* bastante espassado, porém com poucos (ou nenhum) *outliers*, devido ao baixo número de *outliers* a média deve se comportar bem.
 
 As demais disciplinas seguem este mesmo resultado, e ambas as análises concordaram em geral a respeito de quais são as 10 cursos com menores notas, havendo apenas algumas trocas de posição no *ranking*, e uma troca de disciplina presente no *ranking*.
 
 ``` {r}
-
-## 10 Menores Medianas
-dados_mediana_curso[1:10,]
-
-## 10 Menores Médias
-dados_media_curso[1:10,]
-
+maiores_10_medianas_curso
+dados_10_maiores_medias
 ```
 
 Os cursos de maiores notas apresentaram menor desvio padrão e mais *outliers*, devido ao grande número de *outliers* abaixo do resultado as médias devem estar um pouco a baixo da mediana, e as medianas devem ser mais confiáveis. Assim como é esperado houve mais "desacordos" nas análises, por exemplo: as análises não batem a respeito do "número 1" em maiores notas, porém em geral concordaram a respeito do *ranking* sendo diferenciados apenas em 1 curso.
 
-
-``` {r}
-
-## 10 Maiores Medianas
-dados_mediana_curso[85:95,]
-
-## 10 Maiores Médias
-dados_media_curso[85:95,]
-
-```
-
-Obs: no *Box Plot* essa quantidade grande de 0's devem ser consequência de várias reprovações por falta, ou desistências que estão presentes nos dados e não foram retirados
-para manter a consistência nos dados.
+Obs: no *Box Plot* essa quantidade grande de 0's devem ser consequência de várias reprovações por falta, ou desistências que estão presentes nos dados e não foram retirados para manter a consistência nos dados.
 
 ## Parte 2 <a name="parte2"></a>
 
@@ -213,7 +238,7 @@ dados_media_cc <- summarise(dados_media_cc,
 dados_media_cc <- dados_media_cc[order(dados_media_cc$Media_Periodo),]
 
 # Box Plot 
-ggplot(dados_alunos_cc, aes(factor(Periodo), Media_Disciplina, na.rm = T)) + coord_flip() + geom_boxplot(alpha=1/4, na.rm = T) + xlab("Média da Disciplina") + ylab("Período em que Disciplina foi Cursada")
+ggplot(dados_alunos_cc, aes(factor(Periodo), Media_Disciplina, na.rm = T))  + geom_boxplot(alpha=1/4, na.rm = T) + xlab("Média da Disciplina") + ylab("Período em que Disciplina foi Cursada") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 # Médias e Desvio Padrão
 ggplot() +
@@ -223,7 +248,7 @@ ggplot() +
   geom_errorbar(data = dados_media_cc, aes(x = factor(Periodo), 
   ymin = Media_Periodo - Desvio_Periodo, ymax = Media_Periodo + Desvio_Periodo),
   colour = 'blue', width = 0.4)  + xlab("Período") + 
-  ylab("Período em que Disciplina foi Cursada") + coord_flip()
+  ylab("Período em que Disciplina foi Cursada") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 ```
 
@@ -231,7 +256,7 @@ ggplot() +
 
 Ambas as análises indicam que o Período 2002.1 apresenta as maiores médias, além disso contém poucos *outliers* e desvio padrão consideravelmente abaixo dos demais, de forma que assim temos mais confiança no nosso resultado.
 
-Já o Período de menores médias é mais difícil de afirmar com precisão, mas segundo as análises os últimos anos (2009.2 - 2014.1) vem tendo as menores médias em que a mediana é em torno de ~7 e a média entre [6, 7] com grande desvio padrão, e poucos *outliers*.
+Já o Período de menores médias é mais difícil de afirmar com precisão, porém de todos os anos o que apresentou tanto menor média quanto menor mediana foi o ano de 2014.1. Ainda segundo as análises os últimos anos (2009.2 - 2014.1) vem tendo as menores médias em que a mediana é em torno de ~7 e a média entre [6, 7] com grande desvio padrão, e poucos *outliers*. 
 
 ## Parte 3 <a name="parte3"></a>
 
@@ -244,11 +269,10 @@ Questões para ter cuidado é:
   * E se, algum aluno reprovou/cursou múltiplas vezes em Discreta ou CALC 1, qual par de 
     X e Y devemos considerar como notas?
     
-    Nesta análise consideramos apenas **a última Nota em cada disciplina** que deve ser a
-    Nota que o aluno foi aprovado na disciplina ou desistiu da disciplina.
+    Nesta análise consideramos apenas **a última Nota em cada disciplina** que deve ser     a nota que o aluno foi aprovado na disciplina ou desistiu da disciplina.
     
     Outras abordagens, como média, poderiam ter sido feitas, esta foi apenas a que eu
-    achei que faz mais sentido. Já que as últimas notas do aluno refletem seu desempenho 
+    achei que faz mais sentido. Já que as últimas notas do aluno refletem seu desempenho
     "final" na disciplina.
     
   * No caso de um aluno só ter pago uma das Disciplinas?
@@ -283,7 +307,6 @@ discreta_e_calculo = merge(calculo, discreta, by.x = "Matricula", by.y = "Matric
 
 # Gráfico Scatter Plot do resultado
 ggplot(discreta_e_calculo, aes(Media_Disciplina.x, Media_Disciplina.y)) + geom_point(shape=19,   alpha=1/4) + xlab("Média em Discreta") + ylab("Média em Cálculo")
-
 ```
 
 ### Conclusão
@@ -296,4 +319,4 @@ E de fato se calcularmos a correlação entre as médias das disciplinas, temos:
   cor(discreta_e_calculo$Media_Disciplina.x, discreta_e_calculo$Media_Disciplina.y)
 ```
 
-Portanto a correlação é forte e positiva.
+Portanto a correlação é forte e positiva, já que a correlação é maior que 0 e próxima de 0.7 que já é um valor positivo e consideravelmente próximo de 1.
