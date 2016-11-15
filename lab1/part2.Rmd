@@ -333,4 +333,4 @@ E de fato se calcularmos a correlação entre as médias das disciplinas, temos:
   cor(discreta_e_calculo$Media_Disciplina.x, discreta_e_calculo$Media_Disciplina.y)
 ```
 
-Portanto a correlação é forte e positiva, já que a correlação é maior que 0 e próxima de 0.7 que já é um valor positivo e consideravelmente próximo de 1.
+Portanto a correlação é forte e positiva, já que a correlação é maior que 0 e próxima de 0.7 que é um valor positivo e consideravelmente próximo de 1.
