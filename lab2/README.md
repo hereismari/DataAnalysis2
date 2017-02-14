@@ -2,7 +2,7 @@
 
 Here are the Activities Instructions in portuguese (sadly there's 
 no english version available and I whish I cloud traslate it but
-I don't want it :cry:).
+I don't want to :cry:).
 
 ## Part 2
 
