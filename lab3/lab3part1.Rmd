@@ -236,7 +236,7 @@ ggplot(treino, aes(x = evadiu, y = cra_cc)) + geom_boxplot()
 
 ```
 
-Comparando com o uso do CRA (lenvando em conta todas as disciplinas) podemos perceber que a distribuição dos alunos que não evadiram continua bastante similar (assim como a existência de outliers), mas a distrição dos alunos que evadiram se torna ainda mais dispersa ocupando a faixa de [0, 6].
+Comparando com o uso do CRA (considerando todas as disciplinas) podemos perceber que a distribuição dos alunos que não evadiram continua bastante similar (assim como a existência de outliers), mas a distrição dos alunos que evadiram se torna ainda mais dispersa ocupando a faixa de [0, 6].
 
 # 5. O que ajuda mais o classificador, atributos que tem distribuições de valores diferentes entre as classes ou distribuições parecidas? Por que?
 
