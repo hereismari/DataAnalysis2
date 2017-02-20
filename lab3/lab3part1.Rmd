@@ -39,7 +39,7 @@ library(caret)
 
 ## Descrição Geral
 
-Essa tarefa envolve a predição de evasão de alunos do primeiro período de computação. A pergunta que queremos responder é a seguinte: Após um(a) aluno(a) ter terminado o primeiro período, ele(a) continuará no curso ou não? Vamos usar classificação para responder isso.
+Essa tarefa envolve a predição de evasão de aluno(a)s do primeiro período de computação. A pergunta que queremos responder é a seguinte: Após um(a) aluno(a) ter terminado o primeiro período, ele(a) continuará no curso ou não? Vamos usar classificação para responder isso.
 
 ## Sobre a Parte 1
 
@@ -62,7 +62,7 @@ Assim como nas atividades anteriores, temos que modificar o data frame para que 
 
 ``` {r eval=TRUE, echo=TRUE}
 
-treino <- read.csv('~/DataAnalysis2/lab3/treino.csv')
+treino <- read.csv('~/treino_classificacao.csv')
 
 # NAs -> 0
 treino[is.na(treino)] <- 0 
@@ -93,7 +93,7 @@ Irei criar um novo dataframe com as seguintes colunas:
 * ano: [2000, 2015]
 * periodo: [1, 2]
 * num_evasoes: número de alunos que entraram no curso naquele certo ano (e período), mas evadiram
-* num_alunos: úmero de alunos que entraram no curso naquele certo ano (e período)
+* num_alunos: número de alunos que entraram no curso naquele certo ano (e período)
 * proporcao: num_evasoes / num_alunos
 
 Iremos agrupar os dados tanto por ano quanto por período, já que alunos do 2011.1 e 2011.2, por exemplo, podem e devem ser analisados separadamente. 
@@ -114,7 +114,7 @@ ggplot(num_evasoes, aes(reorder(ano_periodo, num_evasoes), num_evasoes)) + geom_
 
 ## Conclusão
 
-O período de 2011.2 apresenta a maior proporção de evasões e também o maior número de evasões. É possível notar também a inexistência de um crescimento ou decrescimento do número de evasões ao longo dos períodos devido à desordenação presente nos gráficos acima.
+O período de 2011.2 apresenta a maior proporção de evasões e também o maior número de evasões. É possível notar também a inexistência de um crescimento ou decrescimento do número de evasões ao longo dos períodos devido à desordenação das *labels* presentes nos gráficos acima.
 
 Os períodos com maior proporção de evasões são:
 
@@ -152,7 +152,7 @@ soma_evasoes$total - soma_evasoes$evasoes
 
 # gráfico
 soma_evasoes.melt <- soma_evasoes %>% melt()
-ggplot(soma_evasoes.melt, aes(x = factor(variable), y = value)) + geom_bar(stat="identity")
+ggplot(soma_evasoes.melt, aes(x = factor(variable), y = value)) + geom_bar(stat="identity") +  geom_text(aes(label= value), vjust=0) + xlab("") + ylab("Número de alunos")
 
 ```
 
@@ -168,12 +168,12 @@ Em outras palavras: a maioria dos classificadores trabalham melhor quando o núm
 
 Foram escolhidas 3 novas variáveis baseadas nas dicas apresentadas no artigo [2] e pela experiência conseguida com as atividades anteriores. Seguem abaixo as novas variáveis, e mais detalhes sobre as mesmas.
 
-## 1. status
+## 4.1. status
 
 Essa variável foi sugerida por [2] como uma boa variável para modelos que utilizam apenas dados do primeiro semestre do curso, é uma variável booleana que tem a seguinte semântica:
 
-  * TRUE : o/a aluno/a tem nota < 5 em todas as disciplinas, ou seja, não pagou nenhuma disciplina no primeiro período
-  * FALSE : o/a aluno/a tem nota >= 5 em pelo menos uma disciplina, ou seja, pagou pelo menos uma disciplina
+  * TRUE : o(a) aluno(a) tem nota < 5 em todas as disciplinas, ou seja, não pagou nenhuma disciplina no primeiro período
+  * FALSE : o(a) aluno(a) tem nota >= 5 em pelo menos uma disciplina, ou seja, pagou pelo menos uma disciplina
   
 O comportamento esperado é que quando o status seja TRUE o aluno tenda a desistir do curso, já se o status for FALSE não esperamos nada específico do resultado. Segue abaixo uma visualização da distribuição das evasões em relação a essa variável. 
   
@@ -201,13 +201,17 @@ grafico.status$status <- c(T, F, T, F)
 grafico.status$labels <-factor(grafico.status$variable,
                       labels=c("1","2","3","4"))
 ggplot(grafico.status, aes(x=evadiu, value, labels=labels)) +   
-  geom_bar(aes(fill = variable), position = "dodge", stat="identity") + scale_fill_manual(breaks=c("1", "2"), values=c("#56B4E9", "#D01717", "#56B4E9", "#D01717"))
+  geom_bar(aes(fill = variable), position = "dodge", stat="identity") + scale_fill_manual(breaks=c("1", "2"), values=c("#56B4E9", "#D01717", "#56B4E9", "#D01717")) + xlab("Evasão") + ylab("Número de alunos")
 ```
 
 
-As barras vermelhas indicam o valor FALSE para o status, e as barras azuis o valor TRUE para o status. Assim é possível perceber que para a maioria dos alunos que não evadiram o valor do status é False, ou seja, boa parte dos alunos que evadiram não necessariamente falharam em todas as disciplinas do primeiro período. Além disso a partir do gráfico podemos perceber que grande parte dos alunos com status TRUE de fato evadiram do curso, como esperado.
+As barras vermelhas indicam o valor FALSE para o status, e as barras azuis o valor TRUE para o status. 
 
-## 2. cra
+Assim é possível perceber que para a maioria dos alunos que não evadiram o valor do status é FALSE, ou seja, a maioria dos alunos que não evadiram não reprovaram em todas as disciplinas do primeiro período, tal resultado é esperado. Porém a maioria dos alunos que evadiram também apresentam a maioria dos status FALSE. 
+
+Além disso, podemos perceber que a maioria dos alunos que tem status = TRUE, ou seja, reprovaram todas as disciplinas do primeiro período, não evadiram, tal resultado também é esperado devido ao grande desbalanceamento dos dados (sem contar os outliers, que serão mostrados com a análise das variáveis abaixo). Mas ~metade dos alunos que evadiram de fato reprovaram todas as disciplinas, assim é possível que a variável status possa ajudar o classificador a identificar evasões.
+
+## 4.2. cra
 
 De acordo com os labs. anteriores a média/cra das disciplinas se mostra um bom atributo para previsões, portanto acho interessante analisar o seu comportamento em relação a evasão. Segue abaixo a visualização.
   
@@ -217,14 +221,14 @@ CRED = 4
 
 treino$cra <- (((treino$Cálculo.Diferencial.e.Integral.I * CRED) + (treino$Álgebra.Vetorial.e.Geometria.Analítica * CRED) + (treino$Introdução.à.Computação * CRED) + (treino$Laboratório.de.Programação.I * CRED) + (treino$Leitura.e.Produção.de.Textos * CRED) + (treino$Programação.I * CRED)) / (CRED * 6))
 
-ggplot(treino, aes(x = evadiu, y = cra)) + geom_boxplot()
+ggplot(treino, aes(x = evadiu, y = cra)) + geom_boxplot() + xlab("Evasão") + ylab("CRA")
 
 ```
 
 Podemos notar que a distribuição do CRA dos alunos que não evadiram é mais concentrado entre [6, 8], enquanto os alunos que evadiram os dados são mais dispersos ocupando a faixa de [2, 5]. Ademais é possível notar um grande número de "outliers" que não evadiram do curso, mas que apresentam CRA muito baixo, para a previsão o ideal é a retirada desses valores que podem "sujar" os dados e influenciar negativamente a previsão.
 
 
-## 2. cra usando apenas disciplinas do departamento de computação
+## 4.3. cra usando apenas disciplinas do departamento de computação
 
 De acordo com os labs. anteriores também foi possível perceber a maior importância das disciplinas do departamento de computação em detrimento das demais disciplinas de outros departamento, assim eu decidi também utilizar a média/cra das disciplinas do departamento de computação. Segue abaixo a visualização.
   
@@ -232,7 +236,7 @@ De acordo com os labs. anteriores também foi possível perceber a maior import�
 
 treino$cra_cc <- (((treino$Introdução.à.Computação * CRED) + (treino$Laboratório.de.Programação.I * CRED) + (treino$Programação.I * CRED)) / (CRED * 3))
 
-ggplot(treino, aes(x = evadiu, y = cra_cc)) + geom_boxplot()
+ggplot(treino, aes(x = evadiu, y = cra_cc)) + geom_boxplot() + xlab("Evasão") + ylab("CRA das disciplinas de CC")
 
 ```
 
@@ -241,7 +245,6 @@ Comparando com o uso do CRA (considerando todas as disciplinas) podemos perceber
 # 5. O que ajuda mais o classificador, atributos que tem distribuições de valores diferentes entre as classes ou distribuições parecidas? Por que?
 
 Acredito que atributos que tenham distribuições de valores distintos entre as classes, pois se as distribuições forem similiares em relação a classes distintas esse atributo pouco ajudará o classificador a distinguir as classes. Por exemplo: se utilizarmos a media de uma disciplina X que tanto alunos que evadiram no curso tiraram notas altas quanto alunos que continuaram no curso esse atributo não parece nos ajudar. Porém com distribuições distintas o classificador irá aprender como se comporta essa distribuição e irá utilizá-la para melhor classificar novos dados.
-
 
 # Referências
 
