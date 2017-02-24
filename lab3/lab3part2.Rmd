@@ -37,8 +37,6 @@ library(caret)
 
 # Descrição da atividade
 
-## Descrição Geral
-
 Nessa etapa você vai aplicar os algoritmos de classificação vistos até agora para prever evasão de alunos no curso de computação.
 
 O cenário é o seguinte: o(a) aluno(a) cursou o primeiro período inteiro e queremos prever se ele(a) se matriculará ou não no segundo período. Se ele(a) não se matriculou é porque abandonou o curso ou solicitou desligamento. De forma mais específica:
@@ -56,27 +54,82 @@ Note que para os passos acima não é necessário usar validação cruzada.
 8. Reporte acurácia, precision e recall da validação-cruzada e teste (para os melhores modelos);
 9. Aplique o melhor modelo a você mesmo(a) usando seu histórico e reporte a predição e resultado.
 
-# 1. Separe os dados em treino e teste
+# 0. Funções auxiliares e variáveis glocais
 
-Aqui iremos transformar os dados, adicionando as colunas criadas na parte 1.
+Para preparar/transformar os dados foram usadas as funções e variáveis apresentadas nesta seção.
 
-##  1.1 Separando os dados de treino
+``` {r}
 
-Para separar iremos considerar os dados de [2009.1, 2015.1] como treino e 2015.2 como teste. Os demais anos foram retirados pois vários não apresentaram evasões e portanto retirá-los desfaz um pouco o desbalanceamento dos dados.
+COL_DADOS = c("matricula", "cod_disciplina", "disciplina", "ano", "periodo", "media", "evadiu")
 
-``` {r eval=TRUE, echo=TRUE}
-dados <- read.csv('~/treino_classificacao.csv')
-dados <- na.omit(dados)
+COL_T = c("matricula", "AV", "C1", "IC", "LP1", "LPT", "P1", "evadiu", "ano", "periodo")
 
-nomes.colunas <- c("matricula", "cod_disciplina", "disciplina", "ano", "periodo", "media", "evadiu")
-colnames(dados) <- nomes.colunas
+NOTA_REP = 5
+NOTA_FINAL = 7
 
-dados$ano_periodo <- paste(as.character(dados$ano), as.character(dados$periodo), sep="")
+INICIO_DISC = 2
+FIM_DISC = 7
+NUM_DISC = 6
 
 select_treino <- function(ano_periodo) {
   return(as.integer(ano_periodo) >= 20091  & as.integer(ano_periodo) <= 20142)
 }
 
+decide_na <- function(col, num, media) {
+  return(ifelse(is.na(col), ifelse(num > 3, 0, media), col))
+}
+
+calcula_status <- function(C1, AV, IC, LP1, LPT, P1) {
+  return (
+    (C1 < NOTA_REP) & (AV < NOTA_REP) & (IC < NOTA_REP) & (LP1 < NOTA_REP) & 
+    (LPT < NOTA_REP) & (P1 < NOTA_REP)
+  )
+}
+
+calcula_cra <- function(C1, AV, IC, LP1, LPT, P1) {
+  return(mean(c(C1, AV, IC, LP1, LPT, P1)))
+}
+
+calcula_cra_cc <- function(IC, LP1, P1) {
+  return(mean(c(IC, LP1, P1)))
+}
+
+calcula_num_finais <- function(C1, AV, IC, LP1, LPT, P1) {
+  return(
+    (C1 < NOTA_FINAL) + (AV < NOTA_FINAL) + (IC < NOTA_FINAL) + (LP1 < NOTA_FINAL) + 
+    (LPT < NOTA_FINAL) + (P1 < NOTA_FINAL)
+  )
+}
+
+calcula_num_NA <- function(C1, AV, IC, LP1, LPT, P1) {
+  return( 
+    NUM_DISC - (is.finite(C1) + is.finite(AV) + is.finite(IC) + is.finite(LP1) + 
+    is.finite(LPT) + is.finite(P1))
+  )
+}
+
+decide_na <- function(col, num, media) {
+  return(ifelse(is.na(col), ifelse(num > 3, 0, media), col))
+}
+
+```
+
+# 1. Separe os dados em treino e teste
+
+Aqui iremos transformar os dados, adicionando também os atributos criados na parte 1.
+
+##  1.1 Separando os dados de treino e teste
+
+Para separar iremos considerar os dados de [2009.1, 2015.1] como treino e 2015.2 como teste. Os demais anos foram retirados pois vários não apresentaram evasões e portanto retirá-los desfaz um pouco o desbalanceamento dos dados (Iremos tratar o desbalanceamento dos dados no final desta atividade na Seção 10) .
+
+``` {r eval=TRUE, echo=TRUE}
+
+dados <- read.csv('~/DataAnalysis2/lab3/treino.csv')
+dados <- na.omit(dados)
+
+colnames(dados) <- COL_DADOS
+
+dados$ano_periodo <- paste(as.character(dados$ano), as.character(dados$periodo), sep="")
 dados <- dados %>% mutate(treino=select_treino(ano_periodo))
 
 aux_split <- split(dados, dados$treino)
@@ -85,20 +138,14 @@ teste <- aux_split[[1]]
 teste <- teste[teste$ano == 2015,] # anos abaixo de 2009 nao devem ser considerados
 
 treino <- aux_split[[2]]
-
-
 ```
 
 ## 1.2 Transformando as linhas em colunas para facilitar o treinamento do modelo
 
-### Treino
-
 ``` {r eval=TRUE, echo=TRUE}
 
-# NAs -> 0
-# treino[is.na(treino)] <- 0 
+# Treino
 
-# Transformacao nos dados
 alunos.evadiu <- treino %>%
   group_by(matricula) %>% select(matricula, evadiu, ano, periodo) %>% unique()
 
@@ -109,30 +156,10 @@ treino <- treino %>%
   mutate(disciplina = as.factor(gsub(" ", ".", disciplina))) %>%
   dcast(matricula ~ disciplina, mean) %>% merge(alunos.evadiu)
 
-NOTA_MIN = 5
+colnames(treino) <- COL_T
 
-treino$status <- ((treino$Cálculo.Diferencial.e.Integral.I < NOTA_MIN) & (treino$Álgebra.Vetorial.e.Geometria.Analítica < NOTA_MIN) & (treino$Introdução.à.Computação < NOTA_MIN) & (treino$Laboratório.de.Programação.I < NOTA_MIN) & (treino$Leitura.e.Produção.de.Textos < NOTA_MIN) & (treino$Programação.I < NOTA_MIN))
+# Teste
 
-CRED = 4
-
-treino$cra <- (((treino$Cálculo.Diferencial.e.Integral.I * CRED) + (treino$Álgebra.Vetorial.e.Geometria.Analítica * CRED) + (treino$Introdução.à.Computação * CRED) + (treino$Laboratório.de.Programação.I * CRED) + (treino$Leitura.e.Produção.de.Textos * CRED) + (treino$Programação.I * CRED)) / (CRED * 6))
-
-treino$cra_cc <- (((treino$Introdução.à.Computação * CRED) + (treino$Laboratório.de.Programação.I * CRED) + (treino$Programação.I * CRED)) / (CRED * 3))
-
-NOTA_MIN = 7
-
-treino$num_finais <- ((treino$Cálculo.Diferencial.e.Integral.I < NOTA_MIN) + (treino$Álgebra.Vetorial.e.Geometria.Analítica < NOTA_MIN) + (treino$Introdução.à.Computação < NOTA_MIN) + (treino$Laboratório.de.Programação.I < NOTA_MIN) + (treino$Leitura.e.Produção.de.Textos < NOTA_MIN) + (treino$Programação.I < NOTA_MIN))
-
-```
-
-### Teste
-
-``` {r eval=TRUE, echo=TRUE}
-
-# NAs -> 0
-# treino[is.na(treino)] <- 0 
-
-# Transformacao nos dados
 alunos.evadiu <- teste %>%
   group_by(matricula) %>% select(matricula, evadiu, ano, periodo) %>% unique()
 
@@ -143,23 +170,80 @@ teste <- teste %>%
   mutate(disciplina = as.factor(gsub(" ", ".", disciplina))) %>%
   dcast(matricula ~ disciplina, mean) %>% merge(alunos.evadiu)
 
-NOTA_MIN = 5
-
-teste$status <- ((teste$Cálculo.Diferencial.e.Integral.I < NOTA_MIN) & (teste$Álgebra.Vetorial.e.Geometria.Analítica < NOTA_MIN) & (teste$Introdução.à.Computação < NOTA_MIN) & (teste$Laboratório.de.Programação.I < NOTA_MIN) & (teste$Leitura.e.Produção.de.Textos < NOTA_MIN) & (teste$Programação.I < NOTA_MIN))
-
-CRED = 4
-
-teste$cra <- (((teste$Cálculo.Diferencial.e.Integral.I * CRED) + (teste$Álgebra.Vetorial.e.Geometria.Analítica * CRED) + (teste$Introdução.à.Computação * CRED) + (teste$Laboratório.de.Programação.I * CRED) + (teste$Leitura.e.Produção.de.Textos * CRED) + (teste$Programação.I * CRED)) / (CRED * 6))
-
-teste$cra_cc <- (((teste$Introdução.à.Computação * CRED) + (teste$Laboratório.de.Programação.I * CRED) + (teste$Programação.I * CRED)) / (CRED * 3))
-
-NOTA_MIN = 7
-
-teste$num_finais <- ((teste$Cálculo.Diferencial.e.Integral.I < NOTA_MIN) + (teste$Álgebra.Vetorial.e.Geometria.Analítica < NOTA_MIN) + (teste$Introdução.à.Computação < NOTA_MIN) + (teste$Laboratório.de.Programação.I < NOTA_MIN) + (teste$Leitura.e.Produção.de.Textos < NOTA_MIN) + (teste$Programação.I < NOTA_MIN))
+colnames(teste) <- COL_T
 
 ```
 
-## 1.3 Verificando desbalenceamento no treino
+## 1.3 Tratando NAs
+
+Os NAs serão tratados da seguinte forma:
+
+  * Será criada uma nova coluna contendo o número de NAs por linha. Tal coluna poderá ser utilizada como parâmetro para a classificação já que é notável o número de NAs nos alunos que evadem, provavelmente por diferentes motivos (evasão no meio do período, perder a disciplina por falta, etc.)
+  
+  * Depois disso se o número de NAs for > 3 então substuiremos os NAs por 0, caso contrário os substiruiremos pela média das notas presentes
+
+``` {r}
+
+treino$num_NA <- 
+  calcula_num_NA(treino$C1, treino$AV, treino$IC, treino$LP1, treino$LPT, treino$P1)
+treino$media_NA <- 
+  rowMeans(subset(treino, select = c(C1, AV, IC, LP1, LPT, P1)), na.rm = TRUE)
+
+for (i in INICIO_DISC:FIM_DISC) {
+  treino[, i] <- decide_na(treino[, i], treino$num_NA, treino$media_NA)
+}
+
+teste$num_NA <- calcula_num_NA(teste$C1, teste$AV, teste$IC, teste$LP1, teste$LPT, teste$P1)
+teste$media_NA <- rowMeans(subset(teste, select = c(C1, AV, IC, LP1, LPT, P1)), na.rm = TRUE)
+
+for (i in INICIO_DISC:FIM_DISC) {
+  teste[, i] <- decide_na(teste[, i], teste$num_NA, teste$media_NA)
+}
+
+```
+
+## 1.4 Adicionando mais atributos
+
+Iremos adicionar as variáveis utilizadas na parte 1 da atividade, de modo que após essas transformações os dados de treino e teste terão a seguinte estrutura e estarão prontos para serem usados para gerar/testar modelos:
+
+  # TODO
+
+
+``` {r}
+
+# Treino
+
+treino$status <- 
+  calcula_status(treino$C1, treino$AV, treino$IC, treino$LP1, treino$LPT, treino$P1)
+
+treino$cra <-
+  calcula_cra(treino$C1, treino$AV, treino$IC, treino$LP1, treino$LPT, treino$P1)
+
+treino$cra_cc <- 
+  calcula_cra_cc(treino$IC, treino$LP1, treino$P1)
+
+treino$num_finais <- 
+  calcula_num_finais(treino$C1, treino$AV, treino$IC, treino$LP1, treino$LPT, treino$P1)
+
+# Teste
+
+teste$status <- 
+  calcula_status(teste$C1, teste$AV, teste$IC, teste$LP1, teste$LPT, teste$P1)
+
+teste$cra <-
+  calcula_cra(teste$C1, teste$AV, teste$IC, teste$LP1, teste$LPT, teste$P1)
+
+teste$cra_cc <- 
+  calcula_cra_cc(teste$IC, teste$LP1, teste$P1)
+
+teste$num_finais <- 
+  calcula_num_finais(teste$C1, teste$AV, teste$IC, teste$LP1, teste$LPT, teste$P1)
+
+```
+
+## 1.5 Verificando desbalenceamento no treino
+
+a # TODO
 
 ``` {r eval=TRUE, echo=TRUE}
 
@@ -174,8 +258,10 @@ soma_evasoes <- num_evasoes %>% ungroup() %>% summarise(total = sum(num_alunos),
 soma_evasoes.melt <- soma_evasoes %>% melt()
 ggplot(soma_evasoes.melt, aes(x = factor(variable), y = value)) + geom_bar(stat="identity") +  geom_text(aes(label= value), vjust=0) + xlab("") + ylab("Número de alunos")
 
+```
 
-###################################
+
+``` {r}
 
 treino$evadiu <- factor(treino$evadiu)
 teste$evadiu <- factor(teste$evadiu)
@@ -186,175 +272,14 @@ glm.fit <- train(evadiu ~ . -matricula,
                  family="binomial",
                  na.action = na.omit)
 
-x <- predict(glm.fit, newdata=teste)
+result <- predict(glm.fit, newdata=teste)
+
+confusionMatrix(glm.fit, newdata=teste)
+
+accuracy <- table(result, teste$evadiu)
+sum(diag(accuracy))/sum(accuracy)
 
 ```
-
-## 1.4 Tratando NAs
-
-Os NAs serão tratados da seguinte forma:
-
-  -> 
-
-# 1. Gere uma visualização que mostre em que ano houve mais evasões
-
-Irei criar um novo dataframe com as seguintes colunas:
-
-* ano: [2000, 2015]
-* periodo: [1, 2]
-* num_evasoes: número de alunos que entraram no curso naquele certo ano (e período), mas evadiram
-* num_alunos: número de alunos que entraram no curso naquele certo ano (e período)
-* proporcao: num_evasoes / num_alunos
-
-Iremos agrupar os dados tanto por ano quanto por período, já que alunos do 2011.1 e 2011.2, por exemplo, podem e devem ser analisados separadamente. 
-
-``` {r fig.width = 12, fig.height = 10}
-
-num_evasoes <- treino %>% group_by(ano, periodo) %>%
-               summarise(num_evasoes = sum(evadiu),
-                         num_alunos = n(), 
-                         proporcao = num_evasoes / num_alunos)
-
-num_evasoes$ano_periodo <- paste(as.character(num_evasoes$ano), ".", as.character(num_evasoes$periodo), sep="")
-
-ggplot(num_evasoes, aes(reorder(ano_periodo, proporcao), proporcao)) + geom_bar(stat = "identity", position = "dodge", fill="#56B4E9") + geom_text(aes(label=sprintf("%0.2f %%", proporcao * 100)), size = 4) + guides(fill = F) + ylab("Proporção de Evasão") + xlab("Período da matrícula") + coord_flip() 
-
-ggplot(num_evasoes, aes(reorder(ano_periodo, num_evasoes), num_evasoes)) + geom_bar(fill="#FF9999", stat = "identity", position = "dodge") + geom_text(aes(label=num_evasoes), size = 4) + guides(fill = F) + ylab("Número de Evasões") + xlab("Período da matrícula") + coord_flip() 
-```
-
-## Conclusão
-
-O período de 2011.2 apresenta a maior proporção de evasões e também o maior número de evasões. É possível notar também a inexistência de um crescimento ou decrescimento do número de evasões ao longo dos períodos devido à desordenação das *labels* presentes nos gráficos acima.
-
-Os períodos com maior proporção de evasões são:
-
-  * 2011.2
-  * 2005.2
-  * 2012.1
-  * 2014.2
-  * 2009.2
-
-Os períodos com maior número total de evasões são:
-
-  * 2011.2
-  * 2012.1
-  * 2014.2
-  * 2015.1
-  * 2014.1
-
-# 2. Gere uma visualização da distribuição das classes (número de instâncias de cada classe nos dados)
-
-``` {r eval=TRUE, echo=TRUE}
-
-soma_evasoes <- num_evasoes %>% ungroup() %>% summarise(total = sum(num_alunos), evasoes = sum(num_evasoes))
-
-# número total de alunos
-soma_evasoes$total
-
-# número de evasões
-soma_evasoes$evasoes
-
-# número de alunos que não evadiram
-soma_evasoes$total - soma_evasoes$evasoes
-
-# proporção de alunos que evadiram
-(soma_evasoes$evasoes / soma_evasoes$total) * 100
-
-# gráfico
-soma_evasoes.melt <- soma_evasoes %>% melt()
-ggplot(soma_evasoes.melt, aes(x = factor(variable), y = value)) + geom_bar(stat="identity") +  geom_text(aes(label= value), vjust=0) + xlab("") + ylab("Número de alunos")
-
-```
-
-# 3. Há desbalanceamento das classes (isto é, uma classe tem muito mais instâncias que outra)? Em que proporção? Quais efeitos colaterais o desbalancemanento de classes pode causar no classificador?
-
-Sim, existe desbalanceameto das classes, há um número muito maior de não evasões do que de evasões. Uma proporção de ~3.9% evadiram, enquanto ~96.1% não evadiram.
-
-O desbalanceamento pode causar previsões tendenciosas e precisões irreais, com dados de treino desbalanceados o classificador não terá acesso a todas as informações a respeito da classe em minoria para classificar novos dados. 
-
-Em outras palavras: a maioria dos classificadores trabalham melhor quando o número de observação em cada classe é aproximadamente o mesmo. O problema com classes desbalanceadas é que a o grande número de observações de uma classe tende a ignorar os casos das classes que são minoria e as interpretando como um "ruído" e assim prever novas observações como a classe majoritária com mais frequência.
-
-# 4. Crie pelo menos um atributo novo, que não seja a média da disciplina, que você acha que pode ajudar na classificação
-
-Foram escolhidas 3 novas variáveis baseadas nas dicas apresentadas no artigo [2] e pela experiência conseguida com as atividades anteriores. Seguem abaixo as novas variáveis, e mais detalhes sobre as mesmas.
-
-## 4.1. status
-
-Essa variável foi sugerida por [2] como uma boa variável para modelos que utilizam apenas dados do primeiro semestre do curso, é uma variável booleana que tem a seguinte semântica:
-
-  * TRUE : o(a) aluno(a) tem nota < 5 em todas as disciplinas, ou seja, não pagou nenhuma disciplina no primeiro período
-  * FALSE : o(a) aluno(a) tem nota >= 5 em pelo menos uma disciplina, ou seja, pagou pelo menos uma disciplina
-  
-O comportamento esperado é que quando o status seja TRUE o aluno tenda a desistir do curso, já se o status for FALSE não esperamos nada específico do resultado. Segue abaixo uma visualização da distribuição das evasões em relação a essa variável. 
-  
-``` {r eval=TRUE, echo=TRUE}
-
-# Adicionando variavel
-NOTA_MIN = 5
-
-treino$status <- ((treino$Cálculo.Diferencial.e.Integral.I < NOTA_MIN) & (treino$Álgebra.Vetorial.e.Geometria.Analítica < NOTA_MIN) & (treino$Introdução.à.Computação < NOTA_MIN) & (treino$Laboratório.de.Programação.I < NOTA_MIN) & (treino$Leitura.e.Produção.de.Textos < NOTA_MIN) & (treino$Programação.I < NOTA_MIN))
-
-# Preparando dados para plotar em um gráfico de barras
-
-grafico.status <- data.frame(matrix("", ncol = 0, nrow = 1))
-
-grafico.status$T_T <- sum(treino$evadiu == T & treino$status == T)
-grafico.status$T_F <- sum(treino$evadiu == T & treino$status == F)
-grafico.status$F_T <- sum(treino$evadiu == F & treino$status == T)
-grafico.status$F_F <- sum(treino$evadiu == F & treino$status == F)
-
-grafico.status <- grafico.status %>% melt()
-grafico.status$evadiu <- c(T, T, F, F)
-grafico.status$status <- c(T, F, T, F)
-
-# grafico
-grafico.status$labels <-factor(grafico.status$variable,
-                      labels=c("1","2","3","4"))
-ggplot(grafico.status, aes(x=evadiu, value, labels=labels)) +   
-  geom_bar(aes(fill = variable), position = "dodge", stat="identity") + scale_fill_manual(breaks=c("1", "2"), values=c("#56B4E9", "#D01717", "#56B4E9", "#D01717")) + xlab("Evasão") + ylab("Número de alunos")
-```
-
-
-As barras vermelhas indicam o valor FALSE para o status, e as barras azuis o valor TRUE para o status. 
-
-Assim é possível perceber que para a maioria dos alunos que não evadiram o valor do status é FALSE, ou seja, a maioria dos alunos que não evadiram não reprovaram em todas as disciplinas do primeiro período, tal resultado é esperado. Porém a maioria dos alunos que evadiram também apresentam a maioria dos status FALSE. 
-
-Além disso, podemos perceber que a maioria dos alunos que tem status = TRUE, ou seja, reprovaram todas as disciplinas do primeiro período, não evadiram, tal resultado também é esperado devido ao grande desbalanceamento dos dados (sem contar os outliers, que serão mostrados com a análise das variáveis abaixo). Mas ~metade dos alunos que evadiram de fato reprovaram todas as disciplinas, assim é possível que a variável status possa ajudar o classificador a identificar evasões.
-
-## 4.2. cra
-
-De acordo com os labs. anteriores a média/cra das disciplinas se mostra um bom atributo para previsões, portanto acho interessante analisar o seu comportamento em relação a evasão. Segue abaixo a visualização.
-  
-``` {r eval=TRUE, echo=TRUE}
-
-CRED = 4
-
-treino$cra <- (((treino$Cálculo.Diferencial.e.Integral.I * CRED) + (treino$Álgebra.Vetorial.e.Geometria.Analítica * CRED) + (treino$Introdução.à.Computação * CRED) + (treino$Laboratório.de.Programação.I * CRED) + (treino$Leitura.e.Produção.de.Textos * CRED) + (treino$Programação.I * CRED)) / (CRED * 6))
-
-ggplot(treino, aes(x = evadiu, y = cra)) + geom_boxplot() + xlab("Evasão") + ylab("CRA")
-
-```
-
-Podemos notar que a distribuição do CRA dos alunos que não evadiram é mais concentrado entre [6, 8], enquanto os alunos que evadiram os dados são mais dispersos ocupando a faixa de [2, 5]. Ademais é possível notar um grande número de "outliers" que não evadiram do curso, mas que apresentam CRA muito baixo, para a previsão o ideal é a retirada desses valores que podem "sujar" os dados e influenciar negativamente a previsão.
-
-
-## 4.3. cra usando apenas disciplinas do departamento de computação
-
-De acordo com os labs. anteriores também foi possível perceber a maior importância das disciplinas do departamento de computação em detrimento das demais disciplinas de outros departamento, assim eu decidi também utilizar a média/cra das disciplinas do departamento de computação. Segue abaixo a visualização.
-  
-``` {r eval=TRUE, echo=TRUE}
-
-treino$cra_cc <- (((treino$Introdução.à.Computação * CRED) + (treino$Laboratório.de.Programação.I * CRED) + (treino$Programação.I * CRED)) / (CRED * 3))
-
-ggplot(treino, aes(x = evadiu, y = cra_cc)) + geom_boxplot() + xlab("Evasão") + ylab("CRA das disciplinas de CC")
-
-```
-
-Comparando com o uso do CRA (considerando todas as disciplinas) podemos perceber que a distribuição dos alunos que não evadiram continua bastante similar (assim como a existência de outliers), mas a distrição dos alunos que evadiram se torna ainda mais dispersa ocupando a faixa de [0, 6].
-
-# 5. O que ajuda mais o classificador, atributos que tem distribuições de valores diferentes entre as classes ou distribuições parecidas? Por que?
-
-Acredito que atributos que tenham distribuições de valores distintos entre as classes, pois se as distribuições forem similiares em relação a classes distintas esse atributo pouco ajudará o classificador a distinguir as classes. Por exemplo: se utilizarmos a media de uma disciplina X que tanto alunos que evadiram no curso tiraram notas altas quanto alunos que continuaram no curso esse atributo não parece nos ajudar. Porém com distribuições distintas o classificador irá aprender como se comporta essa distribuição e irá utilizá-la para melhor classificar novos dados.
 
 # Referências
 
