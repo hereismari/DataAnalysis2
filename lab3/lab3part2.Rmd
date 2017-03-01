@@ -1,7 +1,7 @@
 ---
 title: "AD2 2016.2 - Lab3 - Parte 2"
 author: "Marianne Linhares"
-date: "24 de fevereiro de 2016"
+date: "28 de fevereiro de 2016"
 output: 
     html_document:
       toc: true
@@ -60,7 +60,7 @@ Note que para os passos acima não é necessário usar validação cruzada.
 8. Reporte acurácia, precision e recall da validação-cruzada e teste (para os melhores modelos);
 9. Aplique o melhor modelo a você mesmo(a) usando seu histórico e reporte a predição e resultado.
 
-# 0. Funções auxiliares e variáveis glocais
+# 0. Funções auxiliares e variáveis globais
 
 Para preparar e transformar os dados foram usadas as funções e variáveis auxiliares apresentadas nesta seção.
 
@@ -79,10 +79,6 @@ NUM_DISC = 6
 
 select_treino <- function(ano_periodo) {
   return(as.integer(ano_periodo) >= 20091  & as.integer(ano_periodo) <= 20142)
-}
-
-decide_na <- function(col, num, media) {
-  return(ifelse(is.na(col), ifelse(num > 3, 0, media), col))
 }
 
 calcula_status <- function(C1, AV, IC, LP1, LPT, P1) {
@@ -122,12 +118,11 @@ decide_na <- function(col, num, media) {
 
 # 1. Separe os dados em treino e teste
 
-##  1.1 Separando os dados de treino e teste
+##  1.1 Separando os dados
 
-Para separar iremos considerar os dados de [2009.1, 2014.2] como treino e [2015.1, 2015.2] como teste. Os demais anos foram retirados, pois vários não apresentaram evasões (isso foi verificado na parte 1) e portanto retirá-los desfaz um pouco o desbalanceamento dos dados (Iremos tratar o desbalanceamento dos dados na parte 3).
+Para fazer a separação iremos considerar os dados de [2009.1, 2014.2] como treino e [2015.1, 2015.2] como teste. Os demais anos foram retirados, pois vários não apresentaram evasões (isso foi verificado na parte 1) e portanto retirá-los pode diminuir um pouco o desbalanceamento dos dados (Iremos tratar o desbalanceamento na parte 3).
 
-Além disso, não foi feito uma separação aleatória para evitar que tentemos "prever o passado usando o futuro", além de que os dados que apresentam evasão poderiam ser ainda mais desbalanceados.
-
+Além disso, não foi feita uma separação aleatória para evitar que tentemos "prever o passado usando o futuro", além de que uma amostra aleatória poderia ser muito desbalanceada se não particionada corretamente.
 
 ``` {r eval=TRUE, echo=TRUE}
 
@@ -146,7 +141,7 @@ dados <- dados %>% mutate(treino=select_treino(ano_periodo))
 aux_split <- split(dados, dados$treino)
 
 teste <- aux_split[[1]]
-teste <- teste[teste$ano == 2015,] # anos abaixo de 2009 nao devem ser considerados
+teste <- teste[teste$ano == 2015,] # apenas o ano de 2015 eh considerado
 
 treino <- aux_split[[2]]
 ```
@@ -187,11 +182,11 @@ colnames(teste) <- COL_T
 
 ## 1.3 Tratando NAs
 
-Apesar de inicialmente os dados com NA terem sido retirados, muitos alunos não apresentam a média de todas as disciplinas, ao trocar as linhas pelas colunas essas ausências foram substituídas por NAs. 
+Apesar de inicialmente termos retirado as linhas com NA, muitos alunos não apresentam a média de todas as disciplinas, ao trocar as linhas pelas colunas (dcast) essas ausências foram substituídas por NAs. 
 
-Desse modo foi escolhida a seguinte estratégia para tratar os NAs:
+Assim, foi escolhida a seguinte estratégia para tratar os novos NAs:
 
-  * Será criada uma nova coluna contendo o número de NAs por linha. Tal coluna poderá ser utilizada como parâmetro para a classificação já que é notável o número de NAs nos alunos que evadem, provavelmente por diferentes motivos (evasão no meio do período, perder a disciplina por falta, etc.)
+  * Será criada uma nova coluna contendo o número de NAs por linha. Tal coluna poderá ser utilizada como atributo para a classificação já que é notável o número de NAs nos dados dos alunos que evadem, provavelmente por diferentes motivos (evasão no meio do período, perder a disciplina por falta, etc.)
   
   * Depois disso se o número de NAs for > 3 então substituiremos os NAs por 0, caso contrário os substituiremos pela média das notas presentes
 
@@ -227,7 +222,7 @@ teste <- subset(teste, select = -c(media_NA, ano, periodo))
 
 # 2.1 Adicionando atributos
 
-Iremos adicionar as variáveis utilizadas na parte 1 da atividade, de modo que após essas transformações os dados de treino e teste estarão prontos para serem usados para gerar etestar modelos, e terão as seguintes colunas:
+Iremos adicionar as variáveis utilizadas na parte 1 da atividade, de modo que após essas transformações os dados de treino e teste estarão prontos para serem usados para gerar e testar modelos, e terão as seguintes colunas:
 
   * matricula: identificador do aluno
   
@@ -301,7 +296,7 @@ ggplot(num_evasoes.melt, aes(x = factor(variable), y = value)) + geom_bar(stat="
 
 ```
 
-Dentro dos dados de treino apenas ~8.7% são dados de evasões enquanto os demais são dados referentes a alunos que não evadiram. Mantivemos o desbalanceamento dos dados originais (~8.6), que é um resultado ruim porque com essa partição o ideal seria diminuir o desbalanceamento, então uma abordagem para balancear os dados pode ajudar e poderá ser usada posteriormente.
+Dentro dos dados de treino apenas ~10.5% são dados de evasões enquanto os demais são dados referentes a alunos que não evadiram. O desbalanceamento dos dados originais era de ~8.6, então, apesar de temos diminuido levemente o desbalanceamento, uma abordagem para balancear os dados pode ajudar e poderá ser usada posteriormente.
 
 # 2.3 Modelos utilizados
 
@@ -311,7 +306,7 @@ Iremos utilizar 2 modelos:
 
   * Modelo global: um modelo que não utiliza as médias das disciplinas para a classificação, mas apenas atributos que poderiam ser utilizados para qualquer curso. Portanto iremos utilizar os atributos: cra, status, num_NA, num_finais.
   
-  * Modelo computação: um modelo que além dos atributos do modelo global também leva em conta a média das disciplinas.
+  * Modelo computação: um modelo que além dos atributos do modelo global também leva em conta a média das disciplinas do primeiro período de Ciência da Computação.
   
 Assim, com os próximos passos teremos uma noção de qual modelo se sai melhor e se levar a média das disciplinas individualmente tem um impacto notável na acurácia da classificação.
 
@@ -319,7 +314,7 @@ Assim, com os próximos passos teremos uma noção de qual modelo se sai melhor 
 
 Regressão Logística é um modelo de regressão em que a variável dependente é categórica (ou seja discreta), o funcionamento para geração do modelo é similiar a regressão linear, mas não buscamos uma função que se adeque (tenha menor erro) aos dados, e sim uma função que melhor "separe" os dados de forma a classificá-los. 
 
-Para encontrar um modelo de regressão logística no R iremos usar a função glm.
+Para treinar um modelo de regressão logística no R iremos usar a função glm.
 
 ## 3.1 Modelo global
 
@@ -335,8 +330,10 @@ model.reg.global <- train(evadiu ~ cra + num_NA + status + num_finais,
                           data=treino, method="glm", family="binomial", na.action = na.omit)
 
 pred.reg.global <- predict(model.reg.global, newdata=teste)
+treino.pred.reg.global <- predict(model.reg.global, newdata=treino)
 
-acc.reg.global <- confusionMatrix(model.reg.global, newdata=teste)
+acc.reg.global <- confusionMatrix(pred.reg.global, teste$evadiu)
+acc.reg.global
 
 ```
 
@@ -345,22 +342,24 @@ acc.reg.global <- confusionMatrix(model.reg.global, newdata=teste)
 
 ``` {r}
 
-model.reg.cc <- train(evadiu ~ . -matricula,
-                   data=treino,
-                   method="glm",
-                   family="binomial",
-                   na.action = na.omit)
+model.reg.cc <- train(evadiu ~ cra + num_NA + status + num_finais + C1 + AV + 
+                      IC + LP1 + LPT + P1 + cra_cc,
+                       data=treino,
+                       method="glm",
+                       family="binomial",
+                       na.action = na.omit)
 
 pred.reg.cc <- predict(model.reg.cc, newdata=teste)
+treino.pred.reg.cc <- predict(model.reg.cc, newdata=treino)
 
-acc.reg.cc <- confusionMatrix(model.reg.cc, newdata=teste)
+acc.reg.cc <- confusionMatrix(pred.reg.cc, teste$evadiu)
+acc.reg.cc
 
 ```
 
-
 ## 3.3 Conclusão
 
-Avaliando apenas a acurácia vemos que o modelo computação tem maior acurácia que o modelo global. A precisão e recall serão calculados e comparados conjuntamente entre vários modelos na Seção 6.
+Avaliando apenas a acurácia nos testes vemos que ambos tem a mesma acurácia. A precisão e recall serão calculados (tanto para treino quanto para teste) e comparados conjuntamente entre vários modelos na Seção 6.
 
 # 4. Treine modelos de árvore de decisão
 
@@ -372,10 +371,11 @@ model.tree.global <- C5.0(evadiu ~ num_finais + num_NA + cra + status, data = tr
 plot(model.tree.global)  
 
 pred.tree.global <- predict(model.tree.global, teste, type='class')
+treino.pred.tree.global <- predict(model.tree.global, treino, type='class')
 
-acc.tree.global <- CrossTable(teste$evadiu, pred.tree.global,
-           prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
-           dnn = c('actual default', 'predicted default'))
+acc.tree.global <- confusionMatrix(pred.tree.global, teste$evadiu)
+acc.tree.global
+
 ```
 
 ## 4.2 Modelo computação
@@ -383,19 +383,21 @@ acc.tree.global <- CrossTable(teste$evadiu, pred.tree.global,
 
 ``` {r fig.width = 12, fig.height = 10}
 
-model.tree.cc <-  C5.0(evadiu ~ . -matricula, data = treino)
+model.tree.cc <-  C5.0(evadiu ~ cra + num_NA + status + num_finais + C1 + AV + 
+                      IC + LP1 + LPT + P1 + cra_cc, data = treino)
 plot(model.tree.cc)  
 
 pred.tree.cc <- predict(model.tree.cc, teste, type='class')
+treino.pred.tree.cc <- predict(model.tree.cc, treino, type='class')
 
-acc.tree.cc <- CrossTable(teste$evadiu, pred.tree.cc,
-           prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
-           dnn = c('actual default', 'predicted default'))
+acc.tree.cc <- confusionMatrix(pred.tree.cc, teste$evadiu)
+acc.tree.cc
+
 ```
 
 ## 4.3 Conclusão
 
-Considerando apenas acurácia, o modelo global se saiu melhor com acurácia de 95.76% enquanto o modelo computação obteve acurácia de 95.23%. A diferença é bem pequena.
+Considerando apenas acurácia, o modelo global se saiu melhor com acurácia de 95.77% enquanto o modelo computação obteve acurácia de 95.24%. A diferença é bem pequena.
 
 # 5. Interprete os coeficientes da regressão. Quais atributos parecem ser mais importantes?
 
@@ -409,69 +411,220 @@ summary(model.tree.cc)
 
 ```
 
-Segundo as árvores de decisão Status sem dúvidas é o atributo mais importante sendo utilizado 100% das vezes, ou seja em toda decisão o Status é avaliado, inclusive sendo o único atributo avaliado na árvore de decisão do modelo global e ainda sim obtendo maior acurácia que a árvore mais "complexa". Outro atributo evidenciado pela árvore do modelo computação é a média em IC.
+Segundo as árvores de decisão, Status sem dúvidas é o atributo mais importante sendo utilizado 100% das vezes, ou seja em toda decisão o Status é avaliado, inclusive sendo o único atributo avaliado na árvore de decisão do modelo global e ainda sim obtendo maior acurácia que a árvore mais "complexa". Outro atributo evidenciado pela árvore do modelo computação é a média em IC.
 
-Já segundo as regressões logísticas Status também é uma das variáveis mais importantes, seguida por CRA no modelo global e junto de LPT no modelo computação.
+Já segundo as regressões logísticas Status também é uma das variáveis mais importantes, seguida por CRA no modelo global.
 
-Aparentemente os demais atributos adicionados não estão ajudando muito na classificação e podem ser repensados para a próxima parte da atividade.
+Aparentemente alguns dos demais atributos adicionados (como: num_NA, LPT, ...) não estão ajudando muito na classificação e seu uso podem ser repensados para a próxima parte da atividade.
 
 # 6. Reporte acurácia, precision e recall no treino e teste. Como você avalia os resultados? Justifique sua resposta.
 
+## 6.1 No treino
+
 ``` {r}
 
-acuracias <- data.frame(acuracia=c(0.9498, 0.9518, 0.9576, 0.95238))
+# Calculando
+treino.reg.global <- confusionMatrix(treino.pred.reg.global, treino$evadiu)
+treino.reg.cc <- confusionMatrix(treino.pred.reg.cc, treino$evadiu)
 
+treino.tree.global <- confusionMatrix(treino.pred.tree.global, treino$evadiu)
+treino.tree.cc <- confusionMatrix(treino.pred.tree.global, treino$evadiu)
+
+
+# Acurácia
+df <- data_frame('accuracy' = c(treino.reg.global$overall['Accuracy'],
+                                treino.reg.cc$overall['Accuracy'],
+                                treino.tree.global$overall['Accuracy'],
+                                treino.tree.cc$overall['Accuracy']),
+                 'model' = c('Reg. Global', 'Reg. CC', 'Tree. Global', 'Tree. CC'))
+
+ggplot(data = df, aes(x=model, y=accuracy)) + geom_bar(stat="identity") + coord_cartesian(ylim=c(0.94, 0.96))
+
+# Precisão
+df <- data_frame('precision' = c(treino.reg.global$byClass['Precision'],
+                                treino.reg.cc$byClass['Precision'],
+                                treino.tree.global$byClass['Precision'],
+                                treino.tree.cc$byClass['Precision']),
+                 'model' = c('Reg. Global', 'Reg. CC', 'Tree. Global', 'Tree. CC'))
+
+
+ggplot(data = df, aes(x=model, y=precision)) + geom_bar(stat="identity") + coord_cartesian(ylim=c(0.94, 0.97))
+
+# Recall
+df <- data_frame('Recall' = c(treino.reg.global$byClass['Recall'],
+                                treino.reg.cc$byClass['Recall'],
+                                treino.tree.global$byClass['Recall'],
+                                treino.tree.cc$byClass['Recall']),
+                 'model' = c('Reg. Global', 'Reg. CC', 'Tree. Global', 'Tree. CC'))
+
+
+ggplot(data = df, aes(x=model, y=Recall)) + geom_bar(stat="identity") + coord_cartesian(ylim=c(0.97, 0.99))
 
 ```
+
+## Teste
+
+``` {r}
+
+# Acurácia
+df <- data_frame('accuracy' = c(acc.reg.global$overall['Accuracy'],
+                                acc.reg.cc$overall['Accuracy'],
+                                acc.tree.global$overall['Accuracy'],
+                                acc.tree.cc$overall['Accuracy']),
+                 'model' = c('Reg. Global', 'Reg. CC', 'Tree. Global', 'Tree. CC'))
+
+ggplot(data = df, aes(x=model, y=accuracy)) + geom_bar(stat="identity") + coord_cartesian(ylim=c(0.94, 0.96))
+
+# Precisão
+df <- data_frame('precision' = c(acc.reg.global$byClass['Precision'],
+                                acc.reg.cc$byClass['Precision'],
+                                acc.tree.global$byClass['Precision'],
+                                acc.tree.cc$byClass['Precision']),
+                 'model' = c('Reg. Global', 'Reg. CC', 'Tree. Global', 'Tree. CC'))
+
+
+ggplot(data = df, aes(x=model, y=precision)) + geom_bar(stat="identity") + coord_cartesian(ylim=c(0.97, 0.98))
+
+# Recall
+df <- data_frame('Recall' = c(acc.reg.global$byClass['Recall'],
+                                acc.reg.cc$byClass['Recall'],
+                                acc.tree.global$byClass['Recall'],
+                                acc.tree.cc$byClass['Recall']),
+                 'model' = c('Reg. Global', 'Reg. CC', 'Tree. Global', 'Tree. CC'))
+
+
+ggplot(data = df, aes(x=model, y=Recall)) + geom_bar(stat="identity") + coord_cartesian(ylim=c(0.97, 0.972))
+```
+
+Todos os modelos obtiveram os mesmos resultados, resultados esses bastante satisfatórios por sinal, apenas a árvore de decisão do modelo computação obteve resultado superior nos treinos, porém inferior nos testes, o que pode ser um indicativo de overfitting. Na próxima seção iremos treinar modelos utilizando métodos para evitar overfitting.
 
 # 7. Controle overfitting usando validação-cruzada (ridge e lasso na regressão logística e condições de "early stopping" nas árvores de decisão, por exemplo, profundidade da árvore)
 
 ## 7.1 Usando regressão logística
 
+### 7.1.1 Modelo global
+
 ``` {r}
 
 ctrl <- trainControl(method = "repeatedcv", number = 10, savePredictions = TRUE)
 
-model.reg.ctr <- train(evadiu ~ . -matricula,
+ctr.model.reg.global <- train(evadiu ~ cra + num_NA + status + num_finais,
                    data=treino,
                    method="glm",
                    family="binomial",
                    trControl=ctrl,
                    na.action = na.omit)
 
-pred.reg.ctr <- predict(model.reg.ctr, newdata=teste)
+pred.ctr.reg.global <- predict(ctr.model.reg.global, teste)
+treino.ctr.reg.global <- predict(ctr.model.reg.global, treino)
 
-accuracy <- table(pred.reg.ctr, teste$evadiu)
-sum(diag(accuracy))/sum(accuracy)
+acc.ctr.reg.global <- confusionMatrix(pred.ctr.reg.global, teste$evadiu)
+acc.ctr.reg.global
 
 ```
+
+### 7.1.2 Modelo computação
+
+``` {r}
+
+ctrl <- trainControl(method = "repeatedcv", number = 10, savePredictions = TRUE)
+
+ctr.model.reg.cc <- train(evadiu ~ cra + num_NA + status + num_finais + C1 + AV + 
+                      IC + LP1 + LPT + P1 + cra_cc,
+                   data=treino,
+                   method="glm",
+                   family="binomial",
+                   trControl=ctrl,
+                   na.action = na.omit)
+
+pred.ctr.reg.cc <- predict(ctr.model.reg.cc, teste)
+treino.ctr.reg.cc <- predict(ctr.model.reg.cc, treino)
+
+acc.ctr.reg.cc <- confusionMatrix(pred.ctr.reg.cc, teste$evadiu)
+acc.ctr.reg.cc
+
+```
+
+### 7.1.3 Conclusão
+
+Avaliando apenas a acurácia nos testes vemos que ambos tem a mesma acurácia. A precisão e recall serão calculados (tanto para treino quanto para teste) e comparados conjuntamente entre vários modelos na Seção 6.
+
 
 ## 7.2 Usando árvore de decisão
 
+Foi treinado um modelo utilizando earlyStopping e controlando a altura da árvore, porém a altura da árvore já está "pequena" (2), portanto esses métodos não mostraram melhoras no modelo. Bucando uma melhora, foi utilizada uma nova biblioteca para gerar a árvore: rpart.
+
+Segundo a documentação de rpart é utilizada cross-validation entre outros métodos para garantir um melhor resultado na geração do modelo, mais detalhes em [4].
+
+## 7.2.1 Modelo global
+
 ``` {r fig.width = 12, fig.height = 10}
 
-model.rp <- rpart(evadiu ~ AV + C1 + LPT + LP1 + P1 + IC + cra + cra_cc + num_NA + status + num_finais, data = treino, method = 'class')
+model.rp.global <- rpart(evadiu ~ cra + num_NA + status + num_finais, data = treino, method = 'class')
 
-plot(model.rp)
-text(model.rp, pretty=0)
+plot(model.rp.global)
+text(model.rp.global, pretty=0)
 
-pred.rp <- predict(model.rp, teste, type='class')
+pred.rp.global <- predict(model.rp.global, teste, type='class')
 
-accuracy <- table(pred.rp, teste$evadiu)
-sum(diag(accuracy))/sum(accuracy)
-
-
-model.tree.ctr <-  C5.0(evadiu ~ . -matricula, data = treino, control=C5.0Control(minCases = 2, earlyStopping = T))
-plot(model.tree.ctr)  
-
-pred.tree.ctr <- predict(model.tree.ctr, teste, type='class')
-
-accuracy <- table(pred.tree.ctr, teste$evadiu)
-sum(diag(accuracy))/sum(accuracy)
+acc.rp.global <- confusionMatrix(pred.rp.global, teste$evadiu)
+acc.rp.global
 
 ```
 
-# 8. Reporte acurácia, precision e recall da validação-cruzada e teste (para os melhores modelos)
+## 7.2.2 Modelo computação
+
+``` {r fig.width = 12, fig.height = 10}
+
+model.rp.cc <- rpart(evadiu ~ AV + C1 + LPT + LP1 + P1 + IC + cra + cra_cc + num_NA + status + num_finais, data = treino, method = 'class')
+
+plot(model.rp.cc)
+text(model.rp.cc, pretty=0)
+
+pred.rp.cc <- predict(model.rp.cc, teste, type='class')
+
+acc.rp.cc <- confusionMatrix(pred.rp.cc, teste$evadiu)
+acc.rp.cc
+
+```
+
+
+# 8. Reporte acurácia, precision e recall da validação-cruzada no teste (para os melhores modelos)
+
+Considerando apenas os novos modelos (que utilizam métodos para controle de overfitting) e apenas os dados de teste como parâmetro, obtivemos o seguinte resultado.
+
+
+``` {r}
+
+# Acurácia
+df <- data_frame('accuracy' = c(acc.ctr.reg.global$overall['Accuracy'],
+                                acc.ctr.reg.cc$overall['Accuracy'],
+                                acc.rp.global$overall['Accuracy'],
+                                acc.rp.cc$overall['Accuracy']),
+                 'model' = c('Reg. Global', 'Reg. CC', 'Tree. Global', 'Tree. CC'))
+
+ggplot(data = df, aes(x=model, y=accuracy)) + geom_bar(stat="identity") + coord_cartesian(ylim=c(0.94, 0.97))
+
+# Precisão
+df <- data_frame('precision' = c(acc.ctr.reg.global$byClass['Precision'],
+                                acc.ctr.reg.cc$byClass['Precision'],
+                                acc.rp.global$byClass['Precision'],
+                                acc.rp.cc$byClass['Precision']),
+                 'model' = c('Reg. Global', 'Reg. CC', 'Tree. Global', 'Tree. CC'))
+
+
+ggplot(data = df, aes(x=model, y=precision)) + geom_bar(stat="identity") + coord_cartesian(ylim=c(0.97, 0.985))
+
+# Recall
+df <- data_frame('Recall' = c(acc.ctr.reg.global$byClass['Recall'],
+                                acc.ctr.reg.cc$byClass['Recall'],
+                                acc.rp.global$byClass['Recall'],
+                                acc.rp.cc$byClass['Recall']),
+                 'model' = c('Reg. Global', 'Reg. CC', 'Tree. Global', 'Tree. CC'))
+
+
+ggplot(data = df, aes(x=model, y=Recall)) + geom_bar(stat="identity") + coord_cartesian(ylim=c(0.97, 0.99))
+```
 
 # 9. Aplique o melhor modelo a você mesmo(a) usando seu histórico e reporte a predição e resultado.
 
@@ -489,8 +642,4 @@ teste.marianne <- data.frame(C1 = 8.3, AV = 10, LPT = 9.2, P1 = 10, IC=9.9, LP1 
 
 [3. logistic regression in r](https://www.r-bloggers.com/how-to-perform-a-logistic-regression-in-r/)
 
-[1. practical-guide-deal-imbalanced-classification-problems](https://w...content-available-to-author-only...a.com/blog/2016/03/practical-guide-deal-imbalanced-classification-problems/)
-
-[2. Exploiting Academic Records for Predicting Student Drop Out](https://s...content-available-to-author-only...g.br/index.php/jidm/article/view/1625/2936)
-
-[3. Informações diversas](https://r...content-available-to-author-only...s.com/ryankelly/reg)
+[4. rpart](https://cran.r-project.org/web/packages/rpart/rpart.pdf)
