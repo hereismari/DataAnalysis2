@@ -421,7 +421,7 @@ Aparentemente alguns dos demais atributos adicionados (como: num_NA, LPT, ...) n
 
 Antes de analisar esses parâmetros, irei rapidamente explicar seu significado e o que implica para esta análise em específico.  
 
-  ![](/home/marianne-linhares/image.png)
+  ![](/home/mariannelm/image.png)
 
   * Acurácia: quanto por cento acertamos sobre o total, ou seja: (TP+TN)/(TP + FN + FP + TN)
   * Precisão: quanto por cento dos que previmos que EVADIU realmente evadiram: TP/(TP + FP)
