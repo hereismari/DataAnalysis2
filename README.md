@@ -13,5 +13,4 @@ This course is basically a Machine Learning course, couvering the following topi
 * Overfittig and Regularization
 * Ensembles
 * Recommendation Systems
-* Deep Learning with Neural Networks
 
